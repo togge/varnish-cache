@@ -365,7 +365,9 @@ smp_close(const struct stevedore *st)
 
 	CAST_OBJ_NOTNULL(sc, st->priv, SMP_SC_MAGIC);
 	Lck_Lock(&sc->mtx);
-	smp_close_seg(sc, sc->cur_seg);
+	if (sc->cur_seg != NULL)
+		smp_close_seg(sc, sc->cur_seg);
+	AZ(sc->cur_seg);
 	Lck_Unlock(&sc->mtx);
 
 	/* XXX: reap thread */
@@ -608,7 +610,8 @@ debug_persistent(struct cli *cli, const char * const * av, void *priv)
 	}
 	Lck_Lock(&sc->mtx);
 	if (!strcmp(av[3], "sync")) {
-		smp_close_seg(sc, sc->cur_seg);
+		if (sc->cur_seg != NULL)
+			smp_close_seg(sc, sc->cur_seg);
 		smp_new_seg(sc);
 	} else if (!strcmp(av[3], "dump")) {
 		debug_report_silo(cli, sc, 1);
