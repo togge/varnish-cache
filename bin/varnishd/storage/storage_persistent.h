@@ -72,6 +72,7 @@ struct smp_seg {
 	unsigned		flags;
 #define SMP_SEG_MUSTLOAD	(1 << 0)
 #define SMP_SEG_LOADED		(1 << 1)
+#define SMP_SEG_NUKED		(1 << 2)
 
 	uint32_t		nobj;		/* Number of objects */
 	uint32_t		nalloc;		/* Allocations */
@@ -110,6 +111,7 @@ struct smp_sc {
 	uint64_t		next_top;	/* next alloc address top */
 
 	uint64_t		free_offset;
+	uint64_t		free_pending;
 
 	pthread_t		thread;
 
@@ -183,6 +185,7 @@ void smp_reset_sign(struct smp_signctx *ctx);
 void smp_sync_sign(const struct smp_signctx *ctx);
 void smp_newsilo(struct smp_sc *sc);
 int smp_valid_silo(struct smp_sc *sc);
+uint64_t smp_silospaceleft(struct smp_sc *sc);
 
 /*--------------------------------------------------------------------
  * Caculate payload of some stuff

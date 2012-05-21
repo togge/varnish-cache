@@ -96,6 +96,10 @@ smp_save_segs(struct smp_sc *sc)
 		if (sg == sc->cur_seg)
 			continue;
 		VTAILQ_REMOVE(&sc->segments, sg, list);
+		if (sg->flags & SMP_SEG_NUKED) {
+			assert(sc->free_pending >= sg->p.length);
+			sc->free_pending -= sg->p.length;
+		}
 		LRU_Free(sg->lru);
 		FREE_OBJ(sg);
 	}
@@ -300,6 +304,24 @@ smp_close_seg(struct smp_sc *sc, struct smp_seg *sg)
 	/* Save segment list */
 	smp_save_segs(sc);
 	sc->free_offset = smp_segend(sg);
+}
+
+uint64_t
+smp_silospaceleft(struct smp_sc *sc)
+{
+	struct smp_seg *sg;
+
+	/* Lck_AssertHeld(&sc->mtx); */
+
+	sg = VTAILQ_FIRST(&sc->segments);
+	if (sg == NULL)
+		return (sc->mediasize - sc->free_offset);
+	if (sg->p.offset < sc->free_offset) {
+		return ((sc->mediasize - sc->free_offset) +
+			(sg->p.offset - sc->ident->stuff[SMP_SPC_STUFF]));
+	}
+	assert(sc->free_offset < sg->p.offset);
+	return (sg->p.offset - sc->free_offset);
 }
 
 

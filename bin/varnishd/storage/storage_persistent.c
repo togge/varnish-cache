@@ -51,6 +51,7 @@
 #include "vcli_priv.h"
 #include "vend.h"
 #include "vsha256.h"
+#include "vtim.h"
 
 #include "persistent.h"
 #include "storage/storage_persistent.h"
@@ -272,9 +273,12 @@ smp_thread(struct worker *wrk, void *priv)
 {
 	struct smp_sc	*sc;
 	struct smp_seg *sg;
+	struct vsl_log vsl;
+	int i;
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CAST_OBJ_NOTNULL(sc, priv, SMP_SC_MAGIC);
+	VSL_Setup(&vsl, NULL, 0);
 
 	/* First, load all the objects from all segments */
 	VTAILQ_FOREACH(sg, &sc->segments, list)
@@ -286,13 +290,36 @@ smp_thread(struct worker *wrk, void *priv)
 	AZ(sc->tailban);
 	printf("Silo completely loaded\n");
 	while (1) {
-		(void)sleep (1);
-		sg = VTAILQ_FIRST(&sc->segments);
-		if (sg != NULL && sg -> sc->cur_seg && sg->nobj == 0) {
-			Lck_Lock(&sc->mtx);
-			smp_save_segs(sc);
+		Lck_Lock(&sc->mtx);
+		VTAILQ_FOREACH(sg, &sc->segments, list) {
+			if (sg == sc->cur_seg)
+				break;
+			if (smp_silospaceleft(sc) + sc->free_pending >
+			    sc->free_reserve)
+				break;
+			if (sg->flags & SMP_SEG_NUKED)
+				continue;
+
+			/* Nuke this segment */
+			i = sg->nobj;
+			sg->nobj++; /* Make sure it doesn't disappear */
 			Lck_Unlock(&sc->mtx);
+			EXP_NukeLRU(wrk, &vsl, sg->lru);
+			Lck_Lock(&sc->mtx);
+			sg->nobj--;
+			sg->flags |= SMP_SEG_NUKED;
+			sc->free_pending += sg->p.length;
+			printf("Nuked segment nobj=%d (after %d) nfixed=%d"
+			       " free_pending=%ju\n",
+			       i, sg->nobj, sg->nfixed, sc->free_pending);
 		}
+
+		sg = VTAILQ_FIRST(&sc->segments);
+		if (sg != NULL && sg != sc->cur_seg && sg->nobj == 0)
+			smp_save_segs(sc);
+		Lck_Unlock(&sc->mtx);
+
+		VTIM_sleep(0.01);
 	}
 	NEEDLESS_RETURN(NULL);
 }
@@ -392,7 +419,6 @@ smp_allocx(struct stevedore *st, size_t min_size, size_t max_size,
 	struct smp_sc *sc;
 	struct storage *ss;
 	struct smp_seg *sg;
-	unsigned tries;
 	uint64_t left, extra;
 
 	CAST_OBJ_NOTNULL(sc, st->priv, SMP_SC_MAGIC);
@@ -410,16 +436,18 @@ smp_allocx(struct stevedore *st, size_t min_size, size_t max_size,
 	Lck_Lock(&sc->mtx);
 	sg = NULL;
 	ss = NULL;
-	for (tries = 0; tries < 3; tries++) {
-		left = 0;
-		if (sc->cur_seg != NULL)
-			left = smp_spaceleft(sc, sc->cur_seg);
-		if (left >= extra + min_size)
-			break;
+
+	left = 0;
+	if (sc->cur_seg != NULL)
+		left = smp_spaceleft(sc, sc->cur_seg);
+	if (left < extra + min_size) {
 		if (sc->cur_seg != NULL)
 			smp_close_seg(sc, sc->cur_seg);
 		smp_new_seg(sc);
+		if (sc->cur_seg != NULL)
+			left = smp_spaceleft(sc, sc->cur_seg);
 	}
+
 	if (left >= extra + min_size)  {
 		AN(sc->cur_seg);
 		if (left < extra + max_size)
