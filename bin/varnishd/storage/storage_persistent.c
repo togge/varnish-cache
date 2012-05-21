@@ -411,13 +411,17 @@ smp_allocx(struct stevedore *st, size_t min_size, size_t max_size,
 	sg = NULL;
 	ss = NULL;
 	for (tries = 0; tries < 3; tries++) {
-		left = smp_spaceleft(sc, sc->cur_seg);
+		left = 0;
+		if (sc->cur_seg != NULL)
+			left = smp_spaceleft(sc, sc->cur_seg);
 		if (left >= extra + min_size)
 			break;
-		smp_close_seg(sc, sc->cur_seg);
+		if (sc->cur_seg != NULL)
+			smp_close_seg(sc, sc->cur_seg);
 		smp_new_seg(sc);
 	}
 	if (left >= extra + min_size)  {
+		AN(sc->cur_seg);
 		if (left < extra + max_size)
 			max_size = IRNDN(sc, left - extra);
 

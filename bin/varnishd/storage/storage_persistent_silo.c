@@ -198,6 +198,7 @@ smp_new_seg(struct smp_sc *sc)
 	sg = VTAILQ_FIRST(&sc->segments);
 	if (sg != NULL && sg->p.offset >= tmpsg.p.offset) {
 		if (smp_segend(&tmpsg) > sg->p.offset) {
+			printf("out of space\n");
 			/* printf("Out of space in persistent silo free_reserve=%ju left=%ju\n", sc->free_reserve, smp_silospaceleft(sc)); */
 			return;
 		}
