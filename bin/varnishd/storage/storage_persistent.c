@@ -293,6 +293,10 @@ smp_save_segs(struct smp_sc *sc)
 		if (sg->flags & SMP_SEG_NEW)
 			break;
 		VTAILQ_REMOVE(&sc->segments, sg, list);
+		if (sg->flags & SMP_SEG_NUKED) {
+			assert(sc->free_pending >= sg->p.length);
+			sc->free_pending -= sg->p.length;
+		}
 		LRU_Free(sg->lru);
 		FREE_OBJ(sg);
 	}
@@ -328,6 +332,10 @@ smp_save_segs(struct smp_sc *sc)
 	VTAILQ_FOREACH(sg, &sc->segments, list) {
 		assert(sg->p.offset < sc->mediasize);
 		assert(sg->p.offset + sg->p.length <= sc->mediasize);
+		if (sg->flags & SMP_SEG_NUKED) {
+			AZ(length);
+			continue;
+		}
 		if (sg->flags & SMP_SEG_NEW)
 			break;
 		*ss = sg->p;
@@ -344,6 +352,39 @@ smp_save_segs(struct smp_sc *sc)
 	smp_sync_sign(&sc->seg2);
 	Lck_Lock(&sc->mtx);
 }
+
+/*
+ * Raise the free_reserve by nuking segments
+ */
+
+static void
+smp_raise_reserve(struct worker *wrk, struct vsl_log *vsl, struct smp_sc *sc)
+{
+	struct smp_seg *sg;
+
+	Lck_AssertHeld(&sc->mtx);
+
+	VTAILQ_FOREACH(sg, &sc->segments, list) {
+		if (sg == sc->cur_seg)
+			break;
+		if (smp_silospaceleft(sc) + sc->free_pending > sc->free_reserve)
+			break;
+		if (sg->flags & SMP_SEG_NEW)
+			break;
+		if (sg->flags & SMP_SEG_NUKED)
+			continue;
+
+		/* Nuke this segment */
+		Lck_Unlock(&sc->mtx);
+		EXP_NukeLRU(wrk, vsl, sg->lru);
+		Lck_Lock(&sc->mtx);
+		sg->flags |= SMP_SEG_NUKED;
+		sc->free_pending += sg->p.length;
+	}
+	assert(smp_silospaceleft(sc) + sc->free_pending > sc->free_reserve);
+	sc->flags &= ~SMP_SC_LOW;
+}
+
 /*--------------------------------------------------------------------
  * Silo worker thread
  */
@@ -353,9 +394,11 @@ smp_thread(struct worker *wrk, void *priv)
 {
 	struct smp_sc	*sc;
 	struct smp_seg *sg;
+	struct vsl_log vsl;
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CAST_OBJ_NOTNULL(sc, priv, SMP_SC_MAGIC);
+	VSL_Setup(&vsl, NULL, 0);
 
 	/* First, load all the objects from all segments */
 	VTAILQ_FOREACH(sg, &sc->segments, list)
@@ -370,11 +413,13 @@ smp_thread(struct worker *wrk, void *priv)
 	/* Housekeeping loop */
 	Lck_Lock(&sc->mtx);
 	while (!(sc->flags & SMP_SC_STOP)) {
+		if (sc->flags & SMP_SC_LOW)
+			smp_raise_reserve(wrk, &vsl, sc);
 		if (sc->flags & SMP_SC_SYNC)
 			smp_save_segs(sc);
 
 		Lck_Unlock(&sc->mtx);
-		VTIM_sleep(1);
+		VTIM_sleep(0.01);
 		Lck_Lock(&sc->mtx);
 	}
 
