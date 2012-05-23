@@ -725,6 +725,7 @@ void BAN_Compile(void);
 struct ban *BAN_RefBan(struct objcore *oc, double t0, const struct ban *tail);
 void BAN_TailDeref(struct ban **ban);
 double BAN_Time(const struct ban *ban);
+void BAN_Spec(const struct ban *ban, const uint8_t **spec, unsigned *len);
 
 /* cache_busyobj.c */
 void VBO_Init(void);
@@ -1026,6 +1027,7 @@ void STV_free(struct storage *st);
 void STV_open(void);
 void STV_close(void);
 void STV_Freestore(struct object *o);
+void STV_NewBan(const struct ban *ban);
 
 /* storage_synth.c */
 struct vsb *SMS_Makesynth(struct object *obj);
@@ -1035,7 +1037,6 @@ void SMS_Init(void);
 /* storage_persistent.c */
 void SMP_Init(void);
 void SMP_Ready(void);
-void SMP_NewBan(const uint8_t *ban, unsigned len);
 
 /*
  * A normal pointer difference is signed, but we never want a negative value
