@@ -132,6 +132,20 @@ XXXAZ(smp_chk_sign(ctx));
 }
 
 /*--------------------------------------------------------------------
+ * Reapply the sign from start to len bytes
+ */
+
+void
+smp_reapply_sign(struct smp_signctx *ctx, uint32_t len)
+{
+	ctx->ss->length = 0;
+	SHA256_Init(&ctx->ctx);
+	SHA256_Update(&ctx->ctx, ctx->ss,
+	    offsetof(struct smp_sign, length));
+	smp_append_sign(ctx, SIGN_DATA(ctx), len);
+}
+
+/*--------------------------------------------------------------------
  * Reset a signature to empty, prepare for appending.
  */
 
@@ -163,6 +177,18 @@ smp_sync_sign(const struct smp_signctx *ctx)
 	if (i && 0)
 		fprintf(stderr, "SyncSign(%p %s) = %d %s\n",
 		    ctx->ss, ctx->id, i, strerror(errno));
+}
+
+/*--------------------------------------------------------------------
+ * Reset dst sign and append the data of src to it
+ */
+
+void
+smp_copy_sign(struct smp_signctx *dst, const struct smp_signctx *src)
+{
+	smp_reset_sign(dst);
+	memcpy(SIGN_DATA(dst), SIGN_DATA(src), src->ss->length);
+	smp_append_sign(dst, SIGN_DATA(dst), src->ss->length);
 }
 
 /*--------------------------------------------------------------------
