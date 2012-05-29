@@ -140,7 +140,7 @@ smp_load_seg(struct worker *wrk, const struct smp_sc *sc,
 	AN(sg->p.offset);
 	if (sg->p.objlist == 0)
 		return;
-	smp_def_sign(sc, ctx, sg->p.offset, "SEGHEAD");
+	smp_def_sign(sc, ctx, sg->p.offset, 0, "SEGHEAD");
 	if (smp_chk_sign(ctx))
 		return;
 
@@ -227,7 +227,7 @@ smp_new_seg(struct smp_sc *sc)
 
 	/* Neuter the new segment in case there is an old one there */
 	AN(sg->p.offset);
-	smp_def_sign(sc, sg->ctx, sg->p.offset, "SEGHEAD");
+	smp_def_sign(sc, sg->ctx, sg->p.offset, 0, "SEGHEAD");
 	smp_reset_sign(sg->ctx);
 	smp_sync_sign(sg->ctx);
 
@@ -291,13 +291,14 @@ smp_close_seg(struct smp_sc *sc, struct smp_seg *sg)
 	/* Write the (empty) OBJIDX signature */
 	sc->next_top -= IRNUP(sc, SMP_SIGN_SPACE);
 	assert(sc->next_top >= sc->next_bot);
-	smp_def_sign(sc, sg->ctx, sc->next_top, "OBJIDX");
+	smp_def_sign(sc, sg->ctx, sc->next_top, 0, "OBJIDX");
 	smp_reset_sign(sg->ctx);
 	smp_sync_sign(sg->ctx);
 
 	/* Write the (empty) SEGTAIL signature */
 	smp_def_sign(sc, sg->ctx,
-	    sg->p.offset + sg->p.length - IRNUP(sc, SMP_SIGN_SPACE), "SEGTAIL");
+		     sg->p.offset + sg->p.length - IRNUP(sc, SMP_SIGN_SPACE), 0,
+		     "SEGTAIL");
 	smp_reset_sign(sg->ctx);
 	smp_sync_sign(sg->ctx);
 
