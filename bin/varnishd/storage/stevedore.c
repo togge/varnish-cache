@@ -452,6 +452,16 @@ STV_NewBan(const struct ban *ban)
 			stv->newban(stv, ban);
 }
 
+void
+STV_DropBan(const struct ban *ban)
+{
+	struct stevedore *stv;
+
+	VTAILQ_FOREACH(stv, &stv_stevedores, list)
+		if (stv->dropban != NULL)
+			stv->dropban(stv, ban);
+}
+
 /*--------------------------------------------------------------------
  * VRT functions for stevedores
  */
