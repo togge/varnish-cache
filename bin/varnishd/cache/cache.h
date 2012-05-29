@@ -1028,6 +1028,7 @@ void STV_open(void);
 void STV_close(void);
 void STV_Freestore(struct object *o);
 void STV_NewBan(const struct ban *ban);
+void STV_DropBan(const struct ban *ban);
 
 /* storage_synth.c */
 struct vsb *SMS_Makesynth(struct object *obj);
