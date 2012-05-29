@@ -106,6 +106,13 @@ smp_newban(struct stevedore *stv, const struct ban *ban)
 	}
 }
 
+static void
+smp_dropban(struct stevedore *stv, const struct ban *ban)
+{
+	(void)stv;
+	(void)ban;
+}
+
 /*--------------------------------------------------------------------
  * Attempt to open and read in a ban list
  */
@@ -588,6 +595,7 @@ const struct stevedore smp_stevedore = {
 	.allocobj =	smp_allocobj,
 	.free	=	smp_free,
 	.newban =	smp_newban,
+	.dropban =	smp_dropban,
 };
 
 /*--------------------------------------------------------------------
