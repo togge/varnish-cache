@@ -51,6 +51,7 @@
 #include "vcli_priv.h"
 #include "vend.h"
 #include "vsha256.h"
+#include "vtim.h"
 
 #include "persistent.h"
 #include "storage/storage_persistent.h"
@@ -285,15 +286,27 @@ smp_thread(struct worker *wrk, void *priv)
 	BAN_TailDeref(&sc->tailban);
 	AZ(sc->tailban);
 	printf("Silo completely loaded\n");
-	while (1) {
-		(void)sleep (1);
+
+	/* Housekeeping loop */
+	Lck_Lock(&sc->mtx);
+	while (!(sc->flags & SMP_SC_STOP)) {
 		sg = VTAILQ_FIRST(&sc->segments);
-		if (sg != NULL && sg -> sc->cur_seg && sg->nobj == 0) {
-			Lck_Lock(&sc->mtx);
+		if (sg != NULL && sg != sc->cur_seg && sg->nobj == 0) {
 			smp_save_segs(sc);
-			Lck_Unlock(&sc->mtx);
 		}
+
+		Lck_Unlock(&sc->mtx);
+		VTIM_sleep(1);
+		Lck_Lock(&sc->mtx);
 	}
+
+	sc->flags |= SMP_SC_STOPPED;
+	smp_save_segs(sc);
+
+	Lck_Unlock(&sc->mtx);
+	while (1)
+		VTIM_sleep(1);
+
 	NEEDLESS_RETURN(NULL);
 }
 
@@ -368,6 +381,13 @@ smp_close(const struct stevedore *st)
 	if (sc->cur_seg != NULL)
 		smp_close_seg(sc, sc->cur_seg);
 	AZ(sc->cur_seg);
+	sc->flags |= SMP_SC_STOP;
+
+	while (!(sc->flags & SMP_SC_STOPPED)) {
+		Lck_Unlock(&sc->mtx);
+		VTIM_sleep(0.1);
+		Lck_Lock(&sc->mtx);
+	}
 	Lck_Unlock(&sc->mtx);
 
 	/* XXX: reap thread */
