@@ -545,9 +545,9 @@ smp_thread(struct worker *wrk, void *priv)
 		if (sc->flags & SMP_SC_SYNC)
 			smp_save_segs(sc);
 
-		Lck_Unlock(&sc->mtx);
-		VTIM_sleep(0.01);
-		Lck_Lock(&sc->mtx);
+		if (!(sc->flags & (SMP_SC_LOW | SMP_SC_SYNC | SMP_SC_STOP)))
+			/* Wait for something to do */
+			(void)Lck_CondWait(&sc->cond, &sc->mtx, NULL);
 	}
 
 	sc->flags |= SMP_SC_STOPPED;
@@ -649,6 +649,7 @@ smp_close(const struct stevedore *st)
 		smp_close_seg(sc, sc->cur_seg);
 	AZ(sc->cur_seg);
 	sc->flags |= SMP_SC_STOP;
+	AZ(pthread_cond_signal(&sc->cond));
 
 	while (!(sc->flags & SMP_SC_STOPPED)) {
 		Lck_Unlock(&sc->mtx);
