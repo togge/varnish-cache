@@ -248,7 +248,7 @@ smp_newsilo(struct smp_sc *sc)
 	strcpy(si->ident, SMP_IDENT_STRING);
 	si->byte_order = 0x12345678;
 	si->size = sizeof *si;
-	si->major_version = 2;
+	si->major_version = 3;
 	si->unique = sc->unique;
 	si->mediasize = sc->mediasize;
 	si->granularity = sc->granularity;
@@ -300,7 +300,7 @@ smp_valid_silo(struct smp_sc *sc)
 		return (13);
 	if (si->size != sizeof *si)
 		return (14);
-	if (si->major_version != 2)
+	if (si->major_version != 3)
 		return (15);
 	if (si->mediasize != sc->mediasize)
 		return (17);
