@@ -353,7 +353,14 @@ smp_loaded_st(const struct smp_sc *sc, const struct smp_seg *sg,
 	/*
 	 * XXX: We could patch up st->stevedore and st->priv here
 	 * XXX: but if things go right, we will never need them.
+	 * XXX: Setting them to NULL so that any reference will give
+	 * XXX: asserts.
 	 */
+	if (st->stevedore != NULL)
+		st->stevedore = NULL;
+	if (st->priv != NULL)
+		st->priv = NULL;
+
 	return (0);
 }
 
