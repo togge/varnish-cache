@@ -671,6 +671,7 @@ void BAN_Compile(void);
 struct ban *BAN_RefBan(struct objcore *oc, double t0, const struct ban *tail);
 void BAN_TailDeref(struct ban **ban);
 double BAN_Time(const struct ban *ban);
+void BAN_Set_Soft(struct ban *b, int soft);
 
 /* cache_center.c [CNT] */
 void CNT_Session(struct sess *sp);
