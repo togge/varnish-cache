@@ -425,7 +425,7 @@ VRT_synth_page(const struct sess *sp, unsigned flags, const char *str, ...)
 /*--------------------------------------------------------------------*/
 
 void
-VRT_ban(struct sess *sp, char *cmds, ...)
+VRT_ban(struct sess *sp, int soft, char *cmds, ...)
 {
 	char *a1, *a2, *a3;
 	va_list ap;
@@ -434,6 +434,7 @@ VRT_ban(struct sess *sp, char *cmds, ...)
 
 	(void)sp;
 	b = BAN_New();
+	BAN_Set_Soft(b, soft);
 	va_start(ap, cmds);
 	a1 = cmds;
 	good = 0;
@@ -460,7 +461,7 @@ VRT_ban(struct sess *sp, char *cmds, ...)
 /*--------------------------------------------------------------------*/
 
 void
-VRT_ban_string(struct sess *sp, const char *str)
+VRT_ban_string(struct sess *sp, int soft, const char *str)
 {
 	char *a1, *a2, *a3;
 	char **av;
@@ -476,6 +477,7 @@ VRT_ban_string(struct sess *sp, const char *str)
 		return;
 	}
 	b = BAN_New();
+	BAN_Set_Soft(b, soft);
 	good = 0;
 	for (i = 1; ;) {
 		a1 = av[i++];
